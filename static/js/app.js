@@ -109,6 +109,11 @@ document.addEventListener('DOMContentLoaded', () => {
         scrubber.value = 0;
         renderer.resize(canvasEl.width, canvasEl.height);
         
+        // Ensure playback rate (0.5x) is explicitly set on video load
+        const targetRate = parseFloat(selectPlaybackRate?.value || '0.5');
+        videoEl.playbackRate = targetRate;
+        videoEl.defaultPlaybackRate = targetRate;
+
         // Jump to Ball Release initially for instant overview
         if (result.events && result.events.br) {
           seekToTime(result.events.br.time);
@@ -222,6 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   btnPlayPause.addEventListener('click', () => {
     if (videoEl.paused) {
+      videoEl.playbackRate = parseFloat(selectPlaybackRate?.value || '0.5');
       videoEl.play();
       isPlaying = true;
       btnPlayPause.textContent = '⏸';

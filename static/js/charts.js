@@ -261,9 +261,12 @@ class PitchChartsManager {
           legend: {
             position: 'bottom',
             labels: {
+              usePointStyle: true,
+              pointStyle: 'line',
+              pointStyleWidth: 18,
+              boxWidth: 18,
               color: '#e2e8f0',
-              font: { family: 'Inter', size: 11, weight: '600' },
-              boxWidth: 12
+              font: { family: 'Inter', size: 11, weight: '600' }
             }
           }
         }
@@ -392,7 +395,7 @@ class PitchChartsManager {
               color: '#c084fc',
               font: { family: 'JetBrains Mono', size: 10 },
               stepSize: 20,
-              callback: (val) => `${val} km/h`
+              callback: (val) => `${val}`
             },
             title: { display: true, text: '손목 선속도 (km/h)', color: '#c084fc', font: { size: 10.5, weight: '700' } }
           },
@@ -406,7 +409,7 @@ class PitchChartsManager {
               color: '#00f2fe',
               font: { family: 'JetBrains Mono', size: 10 },
               stepSize: 20,
-              callback: (val) => `${val}°`
+              callback: (val) => `${val}`
             },
             title: { display: true, text: '디딤발 무릎 각도 (°)', color: '#00f2fe', font: { size: 10.5, weight: '700' } }
           }
@@ -415,9 +418,12 @@ class PitchChartsManager {
           legend: {
             position: 'top',
             labels: {
+              usePointStyle: true,
+              pointStyle: 'line',
+              pointStyleWidth: 20,
+              boxWidth: 20,
               color: '#e2e8f0',
               font: { family: 'Inter', size: 11, weight: '600' },
-              boxWidth: 14,
               padding: 14,
               filter: (legendItem) => {
                 return legendItem.datasetIndex === 0 || legendItem.datasetIndex === 2;
