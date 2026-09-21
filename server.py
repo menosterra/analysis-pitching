@@ -160,39 +160,24 @@ async def analyze_pitch(
     Analyzes pitching video, performs 2D scale calibration,
     computes mechanics and speed, and generates elite comparison.
     """
-    target_video_path = None
-    target_video_url = None
+    if not video or not video.filename:
+        raise HTTPException(status_code=400, detail="분석할 투구 동영상 파일을 업로드해주세요.")
 
-    if video and video.filename:
-        # Save uploaded file
-        ext = os.path.splitext(video.filename)[1] or ".mp4"
-        unique_name = f"upload_{uuid.uuid4().hex[:8]}{ext}"
-        target_video_path = os.path.join(UPLOAD_DIR, unique_name)
-        with open(target_video_path, "wb") as buffer:
-            shutil.copyfileobj(video.file, buffer)
-        
-        # Also copy to static uploads for web player
-        static_upload_dir = os.path.join(BASE_DIR, "static", "uploads")
-        os.makedirs(static_upload_dir, exist_ok=True)
-        shutil.copy2(target_video_path, os.path.join(static_upload_dir, unique_name))
-        target_video_url = f"/static/uploads/{unique_name}"
+    # Save uploaded file
+    ext = os.path.splitext(video.filename)[1] or ".mp4"
+    unique_name = f"upload_{uuid.uuid4().hex[:8]}{ext}"
+    target_video_path = os.path.join(UPLOAD_DIR, unique_name)
+    with open(target_video_path, "wb") as buffer:
+        shutil.copyfileobj(video.file, buffer)
     
-    elif sample_id:
-        sample_map = {
-            "sample_1": "sample_pitch_1.mp4",
-            "sample_2": "sample_pitch_2.mp4",
-            "sample_3": "sample_pitch_3.mp4"
-        }
-        filename = sample_map.get(sample_id, "sample_pitch_1.mp4")
-        target_video_path = os.path.join(SAMPLE_DIR, filename)
-        target_video_url = f"/static/sample_videos/{filename}"
-    else:
-        # Default to sample 1
-        target_video_path = os.path.join(SAMPLE_DIR, "sample_pitch_1.mp4")
-        target_video_url = "/static/sample_videos/sample_pitch_1.mp4"
+    # Also copy to static uploads for web player
+    static_upload_dir = os.path.join(BASE_DIR, "static", "uploads")
+    os.makedirs(static_upload_dir, exist_ok=True)
+    shutil.copy2(target_video_path, os.path.join(static_upload_dir, unique_name))
+    target_video_url = f"/static/uploads/{unique_name}"
 
     if not os.path.exists(target_video_path):
-        raise HTTPException(status_code=404, detail=f"Target video not found: {target_video_path}")
+        raise HTTPException(status_code=404, detail="업로드된 동영상 파일을 찾을 수 없습니다.")
 
     # Check cache based on video file modified time & parameters
     cache_key = f"{os.path.basename(target_video_path)}_{pitcher_height_cm}_{camera_distance_m}_{throws}"

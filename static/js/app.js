@@ -56,16 +56,20 @@ document.addEventListener('DOMContentLoaded', () => {
   let isPlaying = false;
   let animationFrameId = null;
 
+  const videoPlaceholder = document.getElementById('videoPlaceholder');
+  const viewportHud = document.getElementById('viewportHud');
+
   // 1. Trigger Pitch Analysis
-  async function runAnalysis(fileObj = null, sampleId = 'sample_1') {
+  async function runAnalysis(fileObj) {
+    if (!fileObj) {
+      alert('분석할 투구 동영상 파일을 선택해주세요.');
+      return;
+    }
+
     loadingOverlay.classList.add('active');
     
     const formData = new FormData();
-    if (fileObj) {
-      formData.append('video', fileObj);
-    } else {
-      formData.append('sample_id', sampleId);
-    }
+    formData.append('video', fileObj);
     formData.append('pitcher_height_cm', inputHeight?.value || '178');
     formData.append('camera_distance_m', inputDistance?.value || '6.5');
     formData.append('throws', selectThrows?.value || 'R');
@@ -84,6 +88,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const result = await res.json();
       currentAnalysisData = result;
       populateDashboard(result);
+
+      // Hide placeholder and show HUD
+      if (videoPlaceholder) videoPlaceholder.classList.add('hidden');
+      if (viewportHud) viewportHud.style.display = 'flex';
 
       // Load Video into Player
       videoEl.src = result.video_info.video_url;
@@ -258,16 +266,28 @@ document.addEventListener('DOMContentLoaded', () => {
     renderer.render(videoEl.currentTime);
   });
 
+  // File selection change event (Update placeholder info)
+  fileUpload.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file && videoPlaceholder) {
+      const desc = videoPlaceholder.querySelector('.placeholder-desc');
+      if (desc) {
+        desc.innerHTML = `선택된 동영상: <strong style="color:#00f2fe;">${file.name}</strong><br>하단의 <strong style="color:var(--primary);">[투구 모션 분석 실행]</strong> 버튼을 눌러주세요.`;
+      }
+    }
+  });
+
   // Analyze Trigger (Runs ONLY when "투구 모션 분석 실행" button is clicked)
   btnAnalyze.addEventListener('click', () => {
     const file = fileUpload.files[0];
     if (file) {
-      runAnalysis(file, null);
+      runAnalysis(file);
     } else {
-      runAnalysis(null, 'sample_1');
+      alert('분석할 투구 동영상 파일(.mp4, .mov 등)을 먼저 선택해주세요.');
+      fileUpload.focus();
     }
   });
 
-  // Initialize with initial analysis on page load
-  runAnalysis(null, 'sample_1');
+  // Ready state: Wait for user video upload
 });
+

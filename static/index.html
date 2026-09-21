@@ -108,11 +108,18 @@
       
       <!-- Video & Skeleton Viewport -->
       <div class="video-canvas-viewport">
+        <!-- Empty State Placeholder (Visible before upload) -->
+        <div id="videoPlaceholder" class="video-placeholder">
+          <div class="placeholder-icon">📹</div>
+          <h3 class="placeholder-title">투구 동영상 업로드 대기 중</h3>
+          <p class="placeholder-desc">좌측에서 3루 측면 투구 동영상을 선택하신 후<br><strong style="color: var(--primary);">[투구 모션 분석 실행]</strong> 버튼을 눌러주세요.</p>
+        </div>
+
         <video id="pitchVideo" playsinline preload="auto"></video>
         <canvas id="skeletonCanvas"></canvas>
 
         <!-- Viewport HUD: Right-aligned Controls & Legend -->
-        <div class="viewport-overlay-hud">
+        <div class="viewport-overlay-hud" id="viewportHud" style="display: none;">
           <div class="hud-pill" style="gap: 8px;">
             <span class="legend-chip user"><span class="indicator"></span>2D 골격</span>
             <button id="toggleUserSkeleton" class="layer-btn active" title="사용자 2D 골격 표시/숨김">
