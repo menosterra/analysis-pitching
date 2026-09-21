@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pitching Analysis</title>
+  <meta name="description" content="3루 측면 2D 투구 영상 분석, 팔 회전 반경 기반 OBP 엘리트 스리쿼터 비교, 생체역학 예상 구속 산출 및 맞춤형 코칭 피드백 앱">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="/static/css/style.css?v=18">
+</head>
+<body>
+
+  <!-- Top Sticky Header -->
+  <header>
+    <div class="brand-wrapper">
+      <div class="brand-logo">⚾</div>
+      <div class="brand-text">
+        <h1>Pitching Analysis</h1>
+        <p>3B Side-View 2D Biomechanics</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Dashboard Container -->
+  <main class="dashboard-container">
+
+    <!-- Left Column: Input & Calibration & Speed KPI -->
+    <aside class="left-sidebar" style="display: flex; flex-direction: column; gap: 16px;">
+      
+      <!-- 1. Video Input & Calibration Panel (Top Position) -->
+      <section class="glass-panel">
+        <div class="panel-title">
+          <div class="icon-wrap">동영상 업로드</div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 8px;">
+          <input type="file" id="fileUpload" class="form-input" accept="video/*" style="font-size: 0.78rem; padding: 6px;">
+        </div>
+
+        <!-- Visual Guide: Motion sequence strip extracted from video -->
+        <div class="phase-guide-card" style="flex-direction: column; padding: 6px; gap: 5px;">
+          <div style="width: 100%; border-radius: 6px; overflow: hidden; background: #000; border: 1px solid rgba(255, 255, 255, 0.08); display: flex;">
+            <img src="/static/images/sequence/pitching_motion_strip.png?v=1" alt="투구 동작 연속 시퀀스" style="width: 100%; height: auto; display: block; object-fit: contain;">
+          </div>
+          <div style="font-size: 0.68rem; color: var(--text-muted); text-align: center; font-weight: 500; letter-spacing: -0.01em;">
+            위 동작들이 순차적으로 포함된 동영상
+          </div>
+        </div>
+
+        <div class="form-row" style="grid-template-columns: 1fr 1fr; margin-bottom: 12px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="inputHeight">
+              <span>투수 키 (신장)</span>
+            </label>
+            <input type="number" id="inputHeight" class="form-input" value="178" min="140" max="215" step="1" title="픽셀 대비 실제 거리(m)를 환산하는 기본 척도입니다.">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="selectThrows">
+              <span>투구 손</span>
+            </label>
+            <select id="selectThrows" class="form-select">
+              <option value="R">우완 (Right)</option>
+              <option value="L">좌완 (Left)</option>
+            </select>
+          </div>
+        </div>
+
+        <button id="btnAnalyze" class="btn-primary">
+          <span>투구 모션 분석 실행</span>
+        </button>
+      </section>
+
+      <!-- 2. Speed & Escape Velocity Hero KPI Card -->
+      <section class="speed-hero-card">
+        <div class="speed-label">예상 투구 구속 (Estimated Velocity)</div>
+        <div class="speed-display">
+          <span id="valPitchSpeedKmh" class="speed-number">--.-</span>
+          <span class="speed-unit">km/h</span>
+        </div>
+        <div id="valPitchSpeedMph" class="speed-sub">--.- mph</div>
+        <div id="badgePotentialGain" class="gain-badge">잠재 상승: +-- km/h</div>
+      </section>
+
+      <!-- 3. Overall Synergy Radar Score -->
+      <section class="glass-panel">
+        <div class="panel-title">
+          <div class="icon-wrap">메카닉스 종합 점수</div>
+          <span id="valOverallScore" style="color: var(--primary); font-family: 'Outfit'; font-size: 1.25rem;">--</span>
+        </div>
+        <div class="chart-wrapper" style="height: 190px;">
+          <canvas id="radarChartCanvas"></canvas>
+        </div>
+      </section>
+
+    </aside>
+
+    <!-- Center Column: 2D Video & Skeleton Player Stage + Expanded Charts -->
+    <section class="stage-panel">
+      
+      <!-- Video & Skeleton Viewport -->
+      <div class="video-canvas-viewport">
+        <video id="pitchVideo" playsinline preload="auto"></video>
+        <canvas id="skeletonCanvas"></canvas>
+
+        <!-- Viewport HUD: Right-aligned Controls & Legend -->
+        <div class="viewport-overlay-hud">
+          <div class="hud-pill" style="gap: 8px;">
+            <span class="legend-chip user"><span class="indicator"></span>2D 골격</span>
+            <button id="toggleUserSkeleton" class="layer-btn active" title="사용자 2D 골격 표시/숨김">
+              <span>골격</span>
+            </button>
+            <button id="toggleArmArc" class="layer-btn active" title="팔 회전 궤적 호 표시/숨김">
+              <span>궤적</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Loading Overlay Spinner -->
+        <div id="loadingOverlay" class="loading-overlay">
+          <div class="spinner"></div>
+          <div class="loading-text">3루 측면 2D 모션 및 생체역학 분석 중...</div>
+        </div>
+      </div>
+
+      <!-- Playback Controls & Timeline Scrubber -->
+      <div class="playback-controller">
+        
+        <!-- Timeline Scrubber -->
+        <div class="timeline-scrubber-wrapper">
+          <input type="range" id="timelineScrubber" class="timeline-scrubber" min="0" max="1" step="0.001" value="0">
+        </div>
+
+        <!-- Dedicated Clean Event Jump Bar (3 Buttons in 1 Line) -->
+        <div class="event-jump-bar">
+          <button id="btnJumpPKH" class="btn-event-jump pkh" title="셋업 지점으로 이동">
+            <span>셋업 (Leg Lift)</span>
+            <span class="event-name" id="tagPKH">--s</span>
+          </button>
+          <button id="btnJumpFP" class="btn-event-jump fp" title="디딤발 착지 지점으로 이동">
+            <span>착지 (Foot Plant)</span>
+            <span class="event-name" id="tagFP">--s (기준 0.0s)</span>
+          </button>
+          <button id="btnJumpBR" class="btn-event-jump br" title="볼 릴리즈 지점으로 이동">
+            <span>릴리즈 (Ball Release)</span>
+            <span class="event-name" id="tagBR">--s</span>
+          </button>
+        </div>
+
+        <!-- Playback Buttons Row -->
+        <div class="controls-row">
+          <div class="playback-buttons">
+            <button id="btnResetToStart" class="btn-ctrl" title="맨 처음으로 (Reset to Start)">|◀</button>
+            <button id="btnPrevFrame" class="btn-ctrl" title="이전 프레임 (Step Back)">⏮</button>
+            <button id="btnPlayPause" class="btn-ctrl" title="재생 / 일시정지">▶</button>
+            <button id="btnNextFrame" class="btn-ctrl" title="다음 프레임 (Step Forward)">⏭</button>
+            <span id="timeDisplay" style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: var(--text-muted); margin-left: 8px;">0.00s / 0.00s</span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 0.76rem; color: var(--text-muted);">속도:</span>
+            <select id="selectPlaybackRate" class="speed-select">
+              <option value="0.25">0.25x</option>
+              <option value="0.5" selected>0.5x</option>
+              <option value="1.0">1.0x</option>
+            </select>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Unified 2D Kinetic Chain & Knee Block Comparison Chart (Aligned at Foot Plant t=0.00s) -->
+      <div class="glass-panel" style="padding: 16px;">
+        <div class="panel-title" style="margin-bottom: 8px; font-size: 0.95rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+          <div class="icon-wrap">분석 그래프 (디딤발 제동 & 손목 속도)</div>
+          <span style="font-size: 0.72rem; color: var(--text-muted);">실선: 사용자 | 점선: 엘리트(N=105)</span>
+        </div>
+        <div class="chart-wrapper" style="height: 340px;">
+          <canvas id="unifiedKineticChartCanvas"></canvas>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Right Column: Comparison Table & Coaching Feedback -->
+    <aside class="right-sidebar" style="display: flex; flex-direction: column; gap: 16px;">
+      
+      <!-- Side-by-Side Biomechanical Comparison Table -->
+      <section class="glass-panel">
+        <div class="panel-title">
+          <div class="icon-wrap">분석표 (엘리트와 비교)</div>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th>분석 지표</th>
+                <th>사용자</th>
+                <th>엘리트</th>
+                <th>진단</th>
+              </tr>
+            </thead>
+            <tbody id="comparisonTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Velocity Enhancement Coaching & Targeted Drills -->
+      <section class="glass-panel">
+        <div class="panel-title">
+          <div class="icon-wrap">조언</div>
+        </div>
+
+        <div id="coachingCardsContainer">
+          <!-- Dynamically populated coaching cards -->
+        </div>
+      </section>
+
+    </aside>
+
+  </main>
+
+  <!-- App Scripts with Cache Busting -->
+  <script src="/static/js/skeleton_renderer.js?v=19"></script>
+  <script src="/static/js/charts.js?v=19"></script>
+  <script src="/static/js/app.js?v=19"></script>
+</body>
+</html>
