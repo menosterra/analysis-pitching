@@ -221,7 +221,7 @@ async def analyze_pitch(
 
         # 4. Compute Full Pitch Mechanics & Biomechanical Speed
         mechanics_calc = PitchMechanicsCalculator(pitcher_height_m=height_m, throws=throws)
-        pitch_analysis = mechanics_calc.analyze_full_pitch(interpolated_frames, events, fps=120.0)
+        pitch_analysis = mechanics_calc.analyze_full_pitch(interpolated_frames, events, fps=120.0, original_video_fps=float(fps))
 
         # 5. Compare with OBP Elite Three-Quarter Dataset & Generate Feedback
         comparison_res = comparison_engine.compare_mechanics(pitch_analysis, events, interpolated_frames)

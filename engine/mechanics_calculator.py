@@ -133,18 +133,17 @@ class PitchMechanicsCalculator:
             "wrist_y_m": round(wr["y"], 3)
         }
 
-    def analyze_full_pitch(self, frames, events, fps=120.0):
+    def analyze_full_pitch(self, frames, events, fps=120.0, original_video_fps=30.0):
         """
-        Processes full pitch frames, derives velocities, calculates key POI metrics,
-        and generates Foot Plant (t=0.00s) time-aligned comparisons against Elite benchmark.
+        Performs comprehensive pitching mechanics calculation and speed estimation.
+        Dynamically adapts to any source video framerate (24fps, 30fps, 60fps, 120fps, 240fps).
         """
         dt = 1.0 / fps
-        n = len(frames)
-
-        fp_idx = events["fp"]["frame_idx"]
-        br_idx = events["br"]["frame_idx"]
-        mer_idx = events["mer"]["frame_idx"]
         pkh_idx = events["pkh"]["frame_idx"]
+        fp_idx = events["fp"]["frame_idx"]
+        mer_idx = events["mer"]["frame_idx"]
+        br_idx = events["br"]["frame_idx"]
+        ft_idx = events["ft"]["frame_idx"]
 
         # Determine throwing forward direction (+1 if lead ankle at FP is to the right of rear ankle)
         rear_ankle_x_fp = frames[fp_idx]["joints_m"][self.rear_ankle_idx]["x"]
@@ -206,9 +205,18 @@ class PitchMechanicsCalculator:
         v_wrist_br = float(wrist_speed_kmh[br_idx])
         v_wrist_x_br = float(wrist_vx_kmh[br_idx])
 
-        # Shutter / Sampling loss recovery for standard smartphone / screen recordings (30fps)
-        # In 30fps videos, finite difference gradients damp instantaneous peak acceleration by ~22%
-        c_sampling = 1.22
+        # Dynamic sampling loss compensation based on original source video framerate
+        # 30fps: c_sampling ~ 1.22
+        # 60fps: c_sampling ~ 1.10
+        # 120fps+: c_sampling ~ 1.00
+        src_fps = float(original_video_fps) if (original_video_fps and original_video_fps > 0) else 30.0
+        if src_fps <= 30.0:
+            c_sampling = 1.22
+        elif src_fps < 120.0:
+            c_sampling = 1.00 + ((120.0 - src_fps) / 90.0) * 0.22
+        else:
+            c_sampling = 1.00
+
         v_wrist_x_effective = v_wrist_x_br * c_sampling
 
         eta_dir = float(np.clip(v_wrist_x_br / (v_wrist_br + 1e-6), 0.60, 1.0))
