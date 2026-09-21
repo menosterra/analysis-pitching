@@ -176,6 +176,15 @@ async def analyze_pitch(
         with open(target_video_path, "wb") as buffer:
             shutil.copyfileobj(video.file, buffer)
         
+        # Check file size (Max 80MB to protect cloud memory)
+        file_size = os.path.getsize(target_video_path)
+        if file_size > 80 * 1024 * 1024:
+            try:
+                os.remove(target_video_path)
+            except Exception:
+                pass
+            raise HTTPException(status_code=413, detail="동영상 파일 용량이 너무 큽니다. (최대 80MB 이하의 투구 클립을 업로드해주세요)")
+
         # Also copy to static uploads for web player
         static_upload_dir = os.path.join(BASE_DIR, "static", "uploads")
         os.makedirs(static_upload_dir, exist_ok=True)

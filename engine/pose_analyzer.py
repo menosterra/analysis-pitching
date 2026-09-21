@@ -67,9 +67,10 @@ class PitchPoseAnalyzer:
         )
         self.detector = vision.PoseLandmarker.create_from_options(options)
 
-    def extract_video_landmarks(self, video_path, max_frames=600):
+    def extract_video_landmarks(self, video_path, max_frames=450):
         """
         Reads video and runs MediaPipe Pose Landmarker on each frame.
+        Automatically downscales large 4K/1440p videos to 720p for fast processing and low RAM usage.
         """
         if not os.path.exists(video_path):
             raise FileNotFoundError(f"Video file not found: {video_path}")
@@ -85,6 +86,16 @@ class PitchPoseAnalyzer:
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
+        # Memory & CPU protection: downscale 4K/1440p frames before passing to MediaPipe
+        max_dim = 1280
+        scale_factor = 1.0
+        if max(width, height) > max_dim:
+            scale_factor = max_dim / float(max(width, height))
+            target_w = int(width * scale_factor)
+            target_h = int(height * scale_factor)
+        else:
+            target_w, target_h = width, height
+
         raw_frames = []
         frame_idx = 0
 
@@ -93,8 +104,13 @@ class PitchPoseAnalyzer:
             if not ret:
                 break
 
+            if scale_factor < 1.0:
+                frame_for_mp = cv2.resize(frame, (target_w, target_h), interpolation=cv2.INTER_AREA)
+            else:
+                frame_for_mp = frame
+
             time_sec = frame_idx / fps
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame_rgb = cv2.cvtColor(frame_for_mp, cv2.COLOR_BGR2RGB)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
 
             detection_result = self.detector.detect(mp_image)
@@ -128,7 +144,7 @@ class PitchPoseAnalyzer:
             frame_idx += 1
 
         cap.release()
-        return raw_frames, fps, width, height, total_frames
+        return raw_frames, fps, width, height, min(total_frames, frame_idx)
 
     def calibrate_and_interpolate(self, raw_frames, fps, pitcher_height_m=1.80, camera_dist_m=6.5, throws='R', target_fps=120.0):
         """
@@ -247,20 +263,28 @@ class PitchPoseAnalyzer:
         ankle_vy = np.gradient(ankle_y, dt)
         ankle_speed = np.sqrt(ankle_vx**2 + ankle_vy**2)
 
-        # 1. BR: Peak wrist speed
-        search_start = max(5, int(n * 0.20))
-        search_end = min(n - 2, int(n * 0.95))
-        br_idx = search_start + int(np.argmax(wrist_speed[search_start:search_end]))
+        # 1. BR: Global Peak Wrist Acceleration/Speed detection
+        # Regardless of video length or extra pre-roll/post-roll footage,
+        # locate the definitive ball release acceleration peak.
+        valid_start = min(5, max(1, n // 20))
+        valid_end = max(valid_start + 1, n - 3)
+        br_idx = valid_start + int(np.argmax(wrist_speed[valid_start:valid_end]))
         br_time = times[br_idx]
 
-        # 2. PKH: Maximum lead knee height before BR
-        pkh_search_end = max(5, br_idx - 15)
-        pkh_idx = int(np.argmax(lead_knee_heights[:pkh_search_end]))
+        # 2. PKH (Leg Lift / Setup): Physiologically occurs ~0.35s to ~1.40s BEFORE Ball Release
+        # Search for maximum knee height strictly within the realistic pitching windup window
+        pkh_window_start = max(0, br_idx - int(1.40 * 120))
+        pkh_window_end = max(1, br_idx - int(0.20 * 120))
+        
+        if pkh_window_end > pkh_window_start:
+            pkh_idx = pkh_window_start + int(np.argmax(lead_knee_heights[pkh_window_start:pkh_window_end]))
+        else:
+            pkh_idx = max(0, br_idx - int(0.65 * 120))
         pkh_time = times[pkh_idx]
 
-        # 3. FP: Lead foot landing impact / minimum ankle speed
-        fp_window_start = max(pkh_idx + 5, br_idx - int(0.28 * 120))
-        fp_window_end = max(fp_window_start + 1, br_idx - int(0.08 * 120))
+        # 3. FP (Foot Plant): Lead foot landing impact (deceleration) between PKH and BR (~0.08s to ~0.25s before BR)
+        fp_window_start = max(pkh_idx + 2, br_idx - int(0.26 * 120))
+        fp_window_end = max(fp_window_start + 1, br_idx - int(0.06 * 120))
         
         if fp_window_end > fp_window_start:
             window_ankle_speed = ankle_speed[fp_window_start:fp_window_end]
@@ -269,7 +293,7 @@ class PitchPoseAnalyzer:
             fp_idx = max(0, br_idx - int(0.14 * 120))
         fp_time = times[fp_idx]
 
-        # 4. MER: Maximum arm layback (wrist furthest back from shoulder)
+        # 4. MER (Max External Rotation / Arm Layback): Between FP and BR
         mer_window_start = fp_idx
         mer_window_end = br_idx
         if mer_window_end > mer_window_start + 2:
@@ -284,8 +308,8 @@ class PitchPoseAnalyzer:
             mer_idx = (fp_idx + br_idx) // 2
         mer_time = times[mer_idx]
 
-        # 5. FT: Follow-Through
-        ft_idx = min(n - 1, br_idx + int(0.15 * 120))
+        # 5. FT (Follow-Through): ~0.20s to ~0.35s after Ball Release
+        ft_idx = min(n - 1, br_idx + int(0.25 * 120))
         ft_time = times[ft_idx]
 
         events = {
