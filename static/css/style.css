@@ -808,15 +808,24 @@ header {
     flex-direction: column;
   }
 
-  /* Mobile flow order: Stage (Video) -> Speed KPI -> Charts -> Drills -> Inputs */
-  .stage-panel {
+  /* Mobile flow order: 1. Upload Panel -> 2. Video/Skeleton Stage -> 3. Speed KPI -> 4. Radar -> 5. Details */
+  .left-sidebar {
+    display: contents;
+  }
+  .upload-panel {
     order: 1;
   }
-  .left-sidebar {
+  .stage-panel {
     order: 2;
   }
-  .right-sidebar {
+  .speed-hero-card {
     order: 3;
+  }
+  .left-sidebar > .glass-panel:last-child {
+    order: 4;
+  }
+  .right-sidebar {
+    order: 5;
   }
 
   .charts-dual-grid {

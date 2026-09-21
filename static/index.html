@@ -37,7 +37,7 @@
     <aside class="left-sidebar" style="display: flex; flex-direction: column; gap: 16px;">
       
       <!-- 1. Video Input & Calibration Panel (Top Position) -->
-      <section class="glass-panel">
+      <section id="uploadPanel" class="glass-panel upload-panel">
         <div class="panel-title">
           <div class="icon-wrap">동영상 업로드</div>
         </div>
@@ -112,7 +112,7 @@
         <div id="videoPlaceholder" class="video-placeholder">
           <div class="placeholder-icon">📹</div>
           <h3 class="placeholder-title">투구 동영상 업로드 대기 중</h3>
-          <p class="placeholder-desc">좌측에서 3루 측면 투구 동영상을 선택하신 후<br><strong style="color: var(--primary);">[투구 모션 분석 실행]</strong> 버튼을 눌러주세요.</p>
+          <p class="placeholder-desc">3루 측면 투구 동영상을 선택하신 후<br><strong style="color: var(--primary);">[투구 모션 분석 실행]</strong> 버튼을 눌러주세요.</p>
         </div>
 
         <video id="pitchVideo" playsinline preload="auto"></video>
