@@ -108,7 +108,15 @@ async def serve_index():
     index_path = os.path.join(BASE_DIR, "static", "index.html")
     if os.path.exists(index_path):
         with open(index_path, 'r', encoding='utf-8') as f:
-            return f.read()
+            content = f.read()
+        return HTMLResponse(
+            content=content,
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
     return "<h1>App_pitching</h1><p>index.html not found</p>"
 
 @app.get("/api/sample-videos")
