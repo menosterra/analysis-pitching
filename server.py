@@ -168,24 +168,27 @@ async def analyze_pitch(
     Analyzes pitching video, performs 2D scale calibration,
     computes mechanics and speed, and generates elite comparison.
     """
-    if not video or not video.filename:
+    if video and video.filename:
+        # Save uploaded file
+        ext = os.path.splitext(video.filename)[1] or ".mp4"
+        unique_name = f"upload_{uuid.uuid4().hex[:8]}{ext}"
+        target_video_path = os.path.join(UPLOAD_DIR, unique_name)
+        with open(target_video_path, "wb") as buffer:
+            shutil.copyfileobj(video.file, buffer)
+        
+        # Also copy to static uploads for web player
+        static_upload_dir = os.path.join(BASE_DIR, "static", "uploads")
+        os.makedirs(static_upload_dir, exist_ok=True)
+        shutil.copy2(target_video_path, os.path.join(static_upload_dir, unique_name))
+        target_video_url = f"/static/uploads/{unique_name}"
+    elif sample_id:
+        target_video_path = os.path.join(SAMPLE_DIR, "sample.mp4")
+        target_video_url = "/static/sample_videos/sample.mp4"
+    else:
         raise HTTPException(status_code=400, detail="분석할 투구 동영상 파일을 업로드해주세요.")
 
-    # Save uploaded file
-    ext = os.path.splitext(video.filename)[1] or ".mp4"
-    unique_name = f"upload_{uuid.uuid4().hex[:8]}{ext}"
-    target_video_path = os.path.join(UPLOAD_DIR, unique_name)
-    with open(target_video_path, "wb") as buffer:
-        shutil.copyfileobj(video.file, buffer)
-    
-    # Also copy to static uploads for web player
-    static_upload_dir = os.path.join(BASE_DIR, "static", "uploads")
-    os.makedirs(static_upload_dir, exist_ok=True)
-    shutil.copy2(target_video_path, os.path.join(static_upload_dir, unique_name))
-    target_video_url = f"/static/uploads/{unique_name}"
-
     if not os.path.exists(target_video_path):
-        raise HTTPException(status_code=404, detail="업로드된 동영상 파일을 찾을 수 없습니다.")
+        raise HTTPException(status_code=404, detail="동영상 파일을 찾을 수 없습니다.")
 
     # Check cache based on video file modified time & parameters
     cache_key = f"{os.path.basename(target_video_path)}_{pitcher_height_cm}_{camera_distance_m}_{throws}"

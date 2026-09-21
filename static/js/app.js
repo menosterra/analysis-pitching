@@ -58,10 +58,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const videoPlaceholder = document.getElementById('videoPlaceholder');
   const viewportHud = document.getElementById('viewportHud');
+  const btnLoadSample = document.getElementById('btnLoadSample');
 
   // 1. Trigger Pitch Analysis
-  async function runAnalysis(fileObj) {
-    if (!fileObj) {
+  async function runAnalysis(fileObj = null, sampleId = null) {
+    if (!fileObj && !sampleId) {
       alert('분석할 투구 동영상 파일을 선택해주세요.');
       return;
     }
@@ -69,8 +70,12 @@ document.addEventListener('DOMContentLoaded', () => {
     loadingOverlay.classList.add('active');
     
     const formData = new FormData();
-    formData.append('video', fileObj);
-    formData.append('pitcher_height_cm', inputHeight?.value || '178');
+    if (fileObj) {
+      formData.append('video', fileObj);
+    } else if (sampleId) {
+      formData.append('sample_id', sampleId);
+    }
+    formData.append('pitcher_height_cm', inputHeight?.value || '182');
     formData.append('camera_distance_m', inputDistance?.value || '6.5');
     formData.append('throws', selectThrows?.value || 'R');
 
@@ -288,6 +293,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Sample Video Trigger (Quick test with built-in sample pitching video)
+  if (btnLoadSample) {
+    btnLoadSample.addEventListener('click', () => {
+      if (inputHeight) inputHeight.value = '182';
+      if (selectThrows) selectThrows.value = 'R';
+      runAnalysis(null, 'sample');
+    });
+  }
+
   // Ready state: Wait for user video upload
 });
+
 
