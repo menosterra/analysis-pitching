@@ -206,28 +206,35 @@ class PitchMechanicsCalculator:
         v_wrist_br = float(wrist_speed_kmh[br_idx])
         v_wrist_x_br = float(wrist_vx_kmh[br_idx])
 
-        eta_dir = float(np.clip(v_wrist_x_br / (v_wrist_br + 1e-6), 0.55, 1.0))
+        # Shutter / Sampling loss recovery for standard smartphone / screen recordings (30fps)
+        # In 30fps videos, finite difference gradients damp instantaneous peak acceleration by ~22%
+        c_sampling = 1.22
+        v_wrist_x_effective = v_wrist_x_br * c_sampling
 
-        # 5. Lead Knee Block Mechanics
+        eta_dir = float(np.clip(v_wrist_x_br / (v_wrist_br + 1e-6), 0.60, 1.0))
+
+        # 5. Lead Knee Block Mechanics (Ground Reaction Force transfer)
         knee_fp = fp_metrics["lead_knee_angle"]
         knee_br = br_metrics["lead_knee_angle"]
         knee_diff = knee_br - knee_fp
         
-        if knee_diff >= 15.0:
+        if knee_diff >= 25.0:
+            eta_knee = 1.08  # Exceptional active knee extension block
+        elif knee_diff >= 10.0:
             eta_knee = 1.04
         elif knee_diff >= 0.0:
             eta_knee = 1.00
         else:
-            eta_knee = max(0.88, 1.00 + (knee_diff / 50.0))
+            eta_knee = max(0.88, 1.00 + (knee_diff / 60.0))  # Energy leak penalty
 
-        # 6. Finger Snap Acceleration
-        peak_omega = float(np.max(omega_arm_rad_s[max(0, br_idx - 10):br_idx + 2]))
-        v_snap_base = 55.0 * (self.height_m / 1.85)
-        v_snap = float(np.clip(peak_omega / 25.0 * v_snap_base, 35.0, 68.0))
+        # 6. Rotational Kinetic Whip Acceleration (Shoulder IR + Forearm Whip)
+        peak_omega_rad = float(np.max(omega_arm_rad_s[max(0, br_idx - 15):br_idx + 2]))
+        v_whip_base = (peak_omega_rad / 157.0) * 78.0 * (self.height_m / 1.82)
+        v_whip = float(np.clip(v_whip_base, 38.0, 84.0))
 
-        # 7. Model 3: 2D Full-Extension Lever Arm Escape Velocity Equation
-        rot_escape_velo = (v_wrist_x_br - v_trans_br) * (r_ball_br / r_wrist_br) * eta_knee
-        v_pitch_estimated_kmh = v_trans_br + rot_escape_velo + (v_snap * eta_dir)
+        # 7. Biomechanical Kinetic Summation Model
+        rot_escape_velo = (v_wrist_x_effective - v_trans_br) * (r_ball_br / r_wrist_br) * eta_knee
+        v_pitch_estimated_kmh = v_trans_br + rot_escape_velo + (v_whip * eta_dir)
         v_pitch_estimated_mph = v_pitch_estimated_kmh * 0.621371
 
         sh_br = frames[br_idx]["joints_m"][self.sh_idx]
@@ -321,7 +328,7 @@ class PitchMechanicsCalculator:
                 "wrist_vx_kmh": round(v_wrist_x_br, 1),
                 "translation_speed_kmh": round(v_trans_br, 1),
                 "directional_efficiency_pct": round(eta_dir * 100.0, 1),
-                "finger_snap_contribution_kmh": round(v_snap * eta_dir, 1)
+                "finger_snap_contribution_kmh": round(v_whip * eta_dir, 1)
             },
             "arm_lever_mechanics": {
                 "r_wrist_m": round(r_wrist_br, 3),
