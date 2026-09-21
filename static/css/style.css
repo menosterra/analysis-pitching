@@ -133,14 +133,26 @@ header {
   box-shadow: 0 0 8px var(--primary);
 }
 
-/* Main Layout Grid (Desktop 3-column) */
+/* Main Layout (Clean Vertical Flow: Upload -> Video -> Speed/Radar -> Chart -> Comparison/Drills) */
 .dashboard-container {
-  max-width: 1720px;
+  max-width: 1080px;
   margin: 0 auto;
-  padding: 20px;
-  display: grid;
-  grid-template-columns: 320px 1fr 360px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
   gap: 20px;
+}
+
+.kpi-summary-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 16px;
+}
+
+.details-dual-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 16px;
 }
 
 /* Glass Panels */
@@ -801,35 +813,14 @@ header {
     padding: 10px 16px;
   }
   .dashboard-container {
-    grid-template-columns: 1fr;
-    padding: 12px;
+    padding: 12px 8px;
     gap: 14px;
-    display: flex;
-    flex-direction: column;
   }
 
-  /* Mobile flow order: 1. Upload Panel -> 2. Video/Skeleton Stage -> 3. Speed KPI -> 4. Radar -> 5. Details */
-  .left-sidebar {
-    display: contents;
-  }
-  .upload-panel {
-    order: 1;
-  }
-  .stage-panel {
-    order: 2;
-  }
-  .speed-hero-card {
-    order: 3;
-  }
-  .left-sidebar > .glass-panel:last-child {
-    order: 4;
-  }
-  .right-sidebar {
-    order: 5;
-  }
-
-  .charts-dual-grid {
+  .kpi-summary-grid,
+  .details-dual-grid {
     grid-template-columns: 1fr;
+    gap: 14px;
   }
 
   .chart-wrapper {
