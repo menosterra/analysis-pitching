@@ -97,14 +97,14 @@ class PitchPoseAnalyzer:
         else:
             target_w, target_h = width, height
 
-        # 2. Adaptive Frame Stepping: Target ~60 FPS AI inference rate
-        # For 120fps video: step = 2 (skips 50% CPU inference, PCHIP interpolates to 120fps)
-        # For 240fps video: step = 4 (skips 75% CPU inference, PCHIP interpolates to 120fps)
-        # For 30fps/60fps: step = 1 (every frame is analyzed)
-        if fps >= 90.0:
-            frame_step = max(1, int(round(fps / 60.0)))
-        else:
-            frame_step = 1
+        # 2. Ultra-Fast Adaptive Frame Stepping:
+        # Cap total AI inference frames to max ~75 frames across the entire video.
+        # - High FPS (120fps/240fps): sample down to ~60fps rate
+        # - Long Phone Videos (150~450 frames): step = 2~4 so total AI frames is <= 75 (1.5~2.5s inference)
+        # - Short Clips (<= 75 frames): step = 1 (every frame is analyzed)
+        fps_step = max(1, int(round(fps / 60.0))) if fps >= 90.0 else 1
+        count_step = max(1, int(math.ceil(total_frames / 75.0))) if (total_frames and total_frames > 75) else 1
+        frame_step = max(fps_step, count_step)
 
         raw_frames = []
         frame_idx = 0
