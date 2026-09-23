@@ -158,9 +158,9 @@ class PitchPoseAnalyzer:
         orig_times = np.array([f["time"] for f in valid_frames])
         
         # 1. Determine scale factor (meters / pixel)
-        early_subset = valid_frames[:max(5, len(valid_frames) // 3)]
+        # Accurately estimate upright standing height across setup/windup frames (using 85th percentile of height)
         pixel_heights = []
-        for f in early_subset:
+        for f in valid_frames:
             lms = f["landmarks"]
             top_y = min(lms[NOSE]["y_px"], lms[L_EYE]["y_px"], lms[R_EYE]["y_px"])
             bot_y = max(lms[L_ANKLE]["y_px"], lms[R_ANKLE]["y_px"], lms[L_HEEL]["y_px"], lms[R_HEEL]["y_px"])
@@ -169,8 +169,8 @@ class PitchPoseAnalyzer:
                 pixel_heights.append(px_h)
 
         if len(pixel_heights) > 0:
-            median_px_height = float(np.median(pixel_heights))
-            effective_person_height_px = median_px_height / 0.92
+            upright_px_height = float(np.percentile(pixel_heights, 85))
+            effective_person_height_px = upright_px_height / 0.94
             base_m_per_px = pitcher_height_m / effective_person_height_px
         else:
             base_m_per_px = pitcher_height_m / 600.0
@@ -184,8 +184,15 @@ class PitchPoseAnalyzer:
         interpolated_joints_px = {i: {"x": [], "y": []} for i in range(num_lms)}
 
         for lm_idx in range(num_lms):
-            x_vals = np.array([f["landmarks"][lm_idx]["x_px"] for f in valid_frames])
-            y_vals = np.array([f["landmarks"][lm_idx]["y_px"] for f in valid_frames])
+            x_vals = np.array([f["landmarks"][lm_idx]["x_px"] for f in valid_frames], dtype=float)
+            y_vals = np.array([f["landmarks"][lm_idx]["y_px"] for f in valid_frames], dtype=float)
+
+            # Fix freeze / duplicate values caused by brief tracking dropouts during fast arm swing
+            for i in range(1, len(x_vals) - 1):
+                if x_vals[i] == x_vals[i-1] and y_vals[i] == y_vals[i-1]:
+                    # Linearly interpolate between adjacent frames
+                    x_vals[i] = (x_vals[i-1] + x_vals[i+1]) / 2.0
+                    y_vals[i] = (y_vals[i-1] + y_vals[i+1]) / 2.0
 
             window = min(7, len(x_vals) if len(x_vals) % 2 == 1 else len(x_vals) - 1)
             if window >= 5:

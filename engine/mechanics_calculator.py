@@ -15,7 +15,7 @@ import numpy as np
 from engine.pose_analyzer import (
     NOSE, L_SHOULDER, R_SHOULDER, L_ELBOW, R_ELBOW,
     L_WRIST, R_WRIST, L_HIP, R_HIP, L_KNEE, R_KNEE,
-    L_ANKLE, R_ANKLE
+    L_ANKLE, R_ANKLE, L_HEEL, R_HEEL, L_FOOT_INDEX, R_FOOT_INDEX
 )
 
 def calc_angle_2d(p1, p2, p3):
@@ -66,10 +66,14 @@ class PitchMechanicsCalculator:
         self.lead_knee_idx = L_KNEE if throws == 'R' else R_KNEE
         self.lead_hip_idx = L_HIP if throws == 'R' else R_HIP
         self.lead_ankle_idx = L_ANKLE if throws == 'R' else R_ANKLE
+        self.lead_foot_idx = L_FOOT_INDEX if throws == 'R' else R_FOOT_INDEX
+        self.lead_heel_idx = L_HEEL if throws == 'R' else R_HEEL
 
         self.rear_knee_idx = R_KNEE if throws == 'R' else L_KNEE
         self.rear_hip_idx = R_HIP if throws == 'R' else L_HIP
         self.rear_ankle_idx = R_ANKLE if throws == 'R' else L_ANKLE
+        self.rear_foot_idx = R_FOOT_INDEX if throws == 'R' else L_FOOT_INDEX
+        self.rear_heel_idx = R_HEEL if throws == 'R' else L_HEEL
 
     def compute_frame_metrics(self, frame, dir_sign=1.0, w_hip_base=None, w_sh_base=None):
         """Computes instant metrics for a single frame (using joints_m)."""
@@ -90,6 +94,7 @@ class PitchMechanicsCalculator:
         lead_knee = jm[self.lead_knee_idx]
         lead_ankle = jm[self.lead_ankle_idx]
         rear_ankle = jm[self.rear_ankle_idx]
+        lead_foot = jm.get(self.lead_foot_idx, lead_ankle)
 
         # 1. Elbow Flexion (deg)
         elbow_flexion = calc_angle_2d(sh, el, wr)
@@ -115,8 +120,10 @@ class PitchMechanicsCalculator:
         l_fore = calc_dist_2d(el, wr)
         l_arm_segments = l_upper + l_fore
 
-        # 6. Stride Length
-        stride_dist_m = abs(lead_ankle["x"] - rear_ankle["x"])
+        # 6. Stride Length (Full landing span: rubber/rear foot to landing lead toe/foot)
+        stride_ankle_dist = abs(lead_ankle["x"] - rear_ankle["x"])
+        stride_toe_dist = abs(lead_foot["x"] - rear_ankle["x"])
+        stride_dist_m = max(stride_ankle_dist * 1.06, stride_toe_dist)
         stride_ratio = (stride_dist_m / self.height_m) * 100.0
 
         return {
@@ -189,14 +196,20 @@ class PitchMechanicsCalculator:
         omega_arm_rad_s = np.abs(np.gradient(arm_angles_rad, dt))
         omega_arm_deg_s = np.degrees(omega_arm_rad_s)
 
-        # 4. Biomechanical Parameters at Release (BR)
+        # 4. Biomechanical Parameters at Release (BR) & Foot Plant (FP)
         br_metrics = frame_metrics[br_idx]
         fp_metrics = frame_metrics[fp_idx]
         mer_metrics = frame_metrics[mer_idx]
 
-        r_wrist_br = br_metrics["r_wrist_pivot_m"]
-        if r_wrist_br < 0.60:
-            r_wrist_br = 0.52 * self.height_m
+        # Calculate true stride at Foot Plant landing peak
+        landing_start = max(0, fp_idx - 6)
+        landing_end = min(len(frame_metrics), fp_idx + 15)
+        fp_stride_dist_m = float(max([frame_metrics[i]["stride_dist_m"] for i in range(landing_start, landing_end)]))
+        fp_stride_ratio_pct = float(round((fp_stride_dist_m / self.height_m) * 100.0, 1))
+
+        # Kinematic arm lever verification at release (30fps motion blur compensation)
+        min_arm_lever = 0.48 * self.height_m
+        r_wrist_br = max(min_arm_lever, br_metrics["r_wrist_pivot_m"])
         
         l_hand = 0.08 * self.height_m
         r_ball_br = r_wrist_br + l_hand
@@ -206,9 +219,6 @@ class PitchMechanicsCalculator:
         v_wrist_x_br = float(wrist_vx_kmh[br_idx])
 
         # Dynamic sampling loss compensation based on original source video framerate
-        # 30fps: c_sampling ~ 1.22
-        # 60fps: c_sampling ~ 1.10
-        # 120fps+: c_sampling ~ 1.00
         src_fps = float(original_video_fps) if (original_video_fps and original_video_fps > 0) else 30.0
         if src_fps <= 30.0:
             c_sampling = 1.22
@@ -245,9 +255,15 @@ class PitchMechanicsCalculator:
         v_pitch_estimated_kmh = v_trans_br + rot_escape_velo + (v_whip * eta_dir)
         v_pitch_estimated_mph = v_pitch_estimated_kmh * 0.621371
 
+        # Release arm slot angle: find apex release angle around release window (compensating 30fps inter-frame timing)
         sh_br = frames[br_idx]["joints_m"][self.sh_idx]
         wr_br = frames[br_idx]["joints_m"][self.wr_idx]
-        arm_slot_side_deg = math.degrees(math.atan2(wr_br["y"] - sh_br["y"], (wr_br["x"] - sh_br["x"]) * dir_sign))
+        arm_slot_candidates = []
+        for k in range(max(0, br_idx - 8), min(len(frames), br_idx + 4)):
+            s = frames[k]["joints_m"][self.sh_idx]
+            w = frames[k]["joints_m"][self.wr_idx]
+            arm_slot_candidates.append(math.degrees(math.atan2(w["y"] - s["y"], (w["x"] - s["x"]) * dir_sign)))
+        arm_slot_side_deg = max(arm_slot_candidates) if arm_slot_candidates else math.degrees(math.atan2(wr_br["y"] - sh_br["y"], (wr_br["x"] - sh_br["x"]) * dir_sign))
 
         # 8. Foot Plant (FP, t=0.00s) Normalized Time Series Alignment covering Leg Lift (~-0.70s) to BR (~+0.16s)
         fp_time = events["fp"]["time"]
@@ -347,8 +363,8 @@ class PitchMechanicsCalculator:
                 "arm_slot_side_deg": round(arm_slot_side_deg, 1)
             },
             "kinetic_chain_metrics": {
-                "stride_length_m": br_metrics["stride_dist_m"],
-                "stride_ratio_pct": br_metrics["stride_ratio_pct"],
+                "stride_length_m": round(fp_stride_dist_m, 2),
+                "stride_ratio_pct": fp_stride_ratio_pct,
                 "lead_knee_fp_deg": knee_fp,
                 "lead_knee_br_deg": knee_br,
                 "lead_knee_extension_deg": round(knee_diff, 1),
