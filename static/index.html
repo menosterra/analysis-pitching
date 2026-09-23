@@ -14,6 +14,10 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
+  <!-- html2canvas & jsPDF for Client-side PDF Generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
   <!-- App CSS -->
   <link rel="stylesheet" href="/static/css/style.css?v=45">
 </head>
@@ -233,9 +237,21 @@
         <div id="coachingCardsContainer">
           <!-- Dynamically populated coaching cards -->
         </div>
-      </section>
+      </div>
+    </section>
 
-    </aside>
+    <!-- 6. PDF Summary Report Export Section (Bottom of Page) -->
+    <section id="pdfExportSection" class="glass-panel" style="display: none; padding: 20px; text-align: center; margin-top: 16px; margin-bottom: 24px;">
+      <div style="max-width: 600px; margin: 0 auto;">
+        <button id="btnExportPdf" type="button" class="btn-pdf-export">
+          <span style="font-size: 1.25rem;">📄</span>
+          <span>PDF 요약 보고서 다운로드 (디딤발 착지 기준)</span>
+        </button>
+        <p style="font-size: 0.74rem; color: var(--text-muted); margin-top: 8px; line-height: 1.4;">
+          * 디딤발 착지(Foot Plant) 시점의 정지 영상 스냅샷과 생체역학 종합 지표, 엘리트 비교표 및 맞춤 조언이 포함된 PDF 보고서가 브라우저에서 직접 생성되어 사용자 기기에만 저장됩니다. (서버에 보관되지 않음)
+        </p>
+      </div>
+    </section>
 
   </main>
 

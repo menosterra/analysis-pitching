@@ -976,3 +976,46 @@ header {
   margin-bottom: 14px;
 }
 
+/* ========================================================================= */
+/* 📄 PDF Summary Report Export Button                                       */
+/* ========================================================================= */
+.btn-pdf-export {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  color: #ffffff;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: var(--radius-md);
+  padding: 13px 28px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.96rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(14, 165, 233, 0.35);
+  transition: all var(--transition-fast);
+  width: 100%;
+  max-width: 520px;
+}
+
+.btn-pdf-export:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+  box-shadow: 0 6px 22px rgba(14, 165, 233, 0.55);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.btn-pdf-export:active {
+  transform: translateY(0);
+}
+
+.btn-pdf-export:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+  background: #334155;
+  border-color: #475569;
+  box-shadow: none;
+}
+

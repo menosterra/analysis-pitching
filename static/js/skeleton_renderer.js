@@ -79,27 +79,31 @@ class PitchSkeletonRenderer {
 
   render(currentTime) {
     this.clear();
+    this.renderToContext(this.ctx, currentTime);
+  }
+
+  renderToContext(targetCtx, currentTime) {
+    if (!targetCtx) return;
     const currentFrame = this.findFrameAtTime(currentTime);
     if (!currentFrame) return;
 
     // 1. Draw Arm Swing Trajectory Arc
     if (this.showTrajectory && this.wristTrajectory.length > 2) {
-      this.drawTrajectoryArc(currentTime);
+      this.drawTrajectoryArc(currentTime, targetCtx);
     }
 
     // 2. Draw User 2D Skeleton
     if (this.showUserSkeleton) {
-      this.drawUserSkeleton(currentFrame);
+      this.drawUserSkeleton(currentFrame, targetCtx);
     }
 
     // 3. Draw Joint Metrics HUD
     if (this.showJointAngles) {
-      this.drawJointMetricsHUD(currentFrame);
+      this.drawJointMetricsHUD(currentFrame, targetCtx);
     }
   }
 
-  drawTrajectoryArc(currentTime) {
-    const ctx = this.ctx;
+  drawTrajectoryArc(currentTime, ctx = this.ctx) {
     ctx.save();
     ctx.beginPath();
     ctx.strokeStyle = '#ff3366';
@@ -123,8 +127,7 @@ class PitchSkeletonRenderer {
     ctx.restore();
   }
 
-  drawUserSkeleton(frame) {
-    const ctx = this.ctx;
+  drawUserSkeleton(frame, ctx = this.ctx) {
     const j = frame.joints_px;
     if (!j) return;
 
@@ -175,8 +178,7 @@ class PitchSkeletonRenderer {
     ctx.restore();
   }
 
-  drawJointMetricsHUD(frame) {
-    const ctx = this.ctx;
+  drawJointMetricsHUD(frame, ctx = this.ctx) {
     const j = frame.joints_px;
     if (!j) return;
 
